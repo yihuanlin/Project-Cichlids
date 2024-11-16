@@ -1,0 +1,1 @@
+bam/TM_LG_rep1.markdup.sorted.bam,bam/TM_LG_rep2.markdup.sorted.bam,bam/TM_LG_rep3.markdup.sorted.bam,bam/TM_LG_rep4.markdup.sorted.bam
