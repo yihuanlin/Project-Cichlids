@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/sh -
 if ! command -v conda &> /dev/null
 then
     echo "conda is not installed. Please install Conda and rerun this script."
@@ -17,9 +17,18 @@ then
         exit 1
     fi
 fi
-
-git clone https://github.com/Xinglab/rmats-turbo.git
+if [ ! -d "./rmats-turbo" ]; then
+    git clone https://github.com/Xinglab/rmats-turbo.git
+fi
 cd ./rmats-turbo
-sed -n '/# >>> conda initialize >>>/,/# <<< conda initialize <<</p' ~/.zshrc > conda_init.sh
+if [ -n "$BASH_VERSION" ]; then
+    PROFILE_FILE="$HOME/.bashrc"
+elif [ -n "$ZSH_VERSION" ]; then
+    PROFILE_FILE="$HOME/.zshrc"
+else
+    echo "Unsupported shell. Please manually specify your shell profile."
+    exit 1
+fi
+sed -n '/# >>> conda initialize >>>/,/# <<< conda initialize <<</p' "$PROFILE_FILE" > conda_init.sh
 sed -i '/CONDA_ENV_PATH="\${SCRIPT_DIR}\/conda_envs\/rmats"/r conda_init.sh' ./build_rmats
 ./build_rmats --conda

@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/sh -
 #SBATCH --job-name=salmon_quant
 #SBATCH --output=salmon_quant_%j.out
 #SBATCH --error=salmon_quant_%j.err
@@ -20,7 +20,7 @@ then
     echo "conda is not installed. Please install Conda and rerun this script."
     exit 1
 fi
-conda activate seq || conda create -n seq biopython igv requests pandas ipykernel primer3-py fastqc picard salmon -y
+conda run -n seq salmon --help || conda create -n seq biopython igv requests pandas ipykernel primer3-py fastqc picard salmon -y
 readarray -t sample < <(ls $fq | cut -d'_' -f1)
 readarray -t replicate < <(ls $fq | cut -d'_' -f3 | cut -d'.' -f1)
 middle=$(echo $fq | awk -F'/' '{print $NF}' | cut -d'_' -f2)
@@ -48,19 +48,23 @@ if [ ! -f ../script/create_refflat_from_sam_header.py ]; then
     wget https://raw.githubusercontent.com/crukci-bioinformatics/BamHeaderToRefflat/refs/heads/master/create_refflat_from_sam_header.py -O ../script/create_refflat_from_sam_header.py
 fi
 if [ ! -d ${genome}_index ]; then
-    salmon index -t ${genome}.fa.gz -d decoy.txt -p 64 -i ${genome}_index
+    conda run -n seq salmon index -t ${genome}.fa.gz -d decoy.txt -p 64 -i ${genome}_index
 fi
 mkdir -p ../output/
 
 for i in "${!sample[@]}"; do
     for j in "${!replicate[@]}"; do
         mkdir -p ../output/${sample[i]}_${middle}_${replicate[j]}
+        fastqc_report="../output/${sample[i]}_${middle}_${replicate[j]}/${sample[i]}_${middle}_${replicate[j]}_fastqc.html"
+        if [ ! -f "$fastqc_report" ]; then
+            conda run -n seq fastqc -o "../output/${sample[i]}_${middle}_${replicate[j]}" "../fastq/${sample[i]}_${middle}_${replicate[j]}_*_1.fq.gz" "../fastq/${sample[i]}_${middle}_${replicate[j]}_*_2.fq.gz"
+        fi
         if [ ! -d ../output/${sample[i]}_${middle}_${replicate[j]} ]; then
-            salmon quant -i ${genome}_index -l A -1 ../fastq/${sample[i]}_${middle}_${replicate[j]}_*_1.fq.gz -2 ../fastq/${sample[i]}_${middle}_${replicate[j]}_*_2.fq.gz -p 64 -o ../output/${sample[i]}_${middle}_${replicate[j]} --writeMappings=../output/${sample[i]}_${middle}_${replicate[j]}.salmon.sam --gcBias
+            conda run -n seq salmon quant -i ${genome}_index -l A -1 ../fastq/${sample[i]}_${middle}_${replicate[j]}_*_1.fq.gz -2 ../fastq/${sample[i]}_${middle}_${replicate[j]}_*_2.fq.gz -p 64 -o ../output/${sample[i]}_${middle}_${replicate[j]} --writeMappings=../output/${sample[i]}_${middle}_${replicate[j]}.salmon.sam --gcBias
         fi
         cd ../output/${sample[i]}_${middle}_${replicate[j]}/
         if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.salmon.bam ]; then
-            samtools sort -O BAM -o ${sample[i]}_${middle}_${replicate[j]}.salmon.bam ${sample[i]}_${middle}_${replicate[j]}.salmon.sam -@ 64
+            conda run -n seq samtools sort -O BAM -o ${sample[i]}_${middle}_${replicate[j]}.salmon.bam ${sample[i]}_${middle}_${replicate[j]}.salmon.sam -@ 64
         fi
         if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.tsv ]; then
             ### Make transcript to gene table
@@ -74,7 +78,7 @@ for i in "${!sample[@]}"; do
         # https://bioinformatics-core-shared-training.github.io/Bulk_RNAseq_Course_Nov24/Bulk_RNAseq_Course_Base/Markdowns/04_Quality_Control_practical.html
         # samtools view -H AC_LG_rep1.salmon.bam | grep '@RG' # Get the read group information
         if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.salmon.sorted.bam ]; then
-            picard AddOrReplaceReadGroups \
+            conda run -n seq picard AddOrReplaceReadGroups \
                 -I ${sample[i]}_${middle}_${replicate[j]}.salmon.bam \
                 -O ${sample[i]}_${middle}_${replicate[j]}.salmon.sorted.bam \
                 -RGID ${replicate[j]} \
@@ -85,7 +89,7 @@ for i in "${!sample[@]}"; do
                 -VALIDATION_STRINGENCY SILENT
         fi
         if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.bam ]; then
-            picard MarkDuplicates \
+            conda run -n seq picard MarkDuplicates \
                 -I ${sample[i]}_${middle}_${replicate[j]}.salmon.sorted.bam \
                 -O ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.bam \
                 -M ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup_metrics.txt \
@@ -96,7 +100,7 @@ for i in "${!sample[@]}"; do
             ../../script/create_refflat_from_sam_header.py -b ${sample[i]}_${middle}_${replicate[j]}.salmon.sorted.bam -o ../output/${genome}_transriptome_refFlat.txt
         fi
         if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.metrics ]; then
-            picard CollectRnaSeqMetrics \
+            conda run -n seq picard CollectRnaSeqMetrics \
                 -I ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.bam \
                 -O ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.metrics \
                 -REF_FLAT ../output/${genome}_transriptome_refFlat.txt \
@@ -104,7 +108,7 @@ for i in "${!sample[@]}"; do
                 -VALIDATION_STRINGENCY SILENT
         fi
         if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.QCReport.html ]; then
-            multiqc . -n ${sample[i]}_${middle}_${replicate[j]}.QCReport.html -o .
+            conda run -n seq multiqc . -n ${sample[i]}_${middle}_${replicate[j]}.QCReport.html -o .
         fi
     done
 done
