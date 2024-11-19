@@ -12,7 +12,7 @@
 # https://bioinformatics-core-shared-training.github.io/Bulk_RNAseq_Course_Nov24/Bulk_RNAseq_Course_Base/Markdowns/02_FastQC_practical.html
 # https://bioinformatics-core-shared-training.github.io/Bulk_RNAseq_Course_Nov24/Bulk_RNAseq_Course_Base/Markdowns/03_Quantification_with_Salmon_practical.html
 species="Astatotilapia calliptera"
-fq="/mnt/home3/miska/cy293/cichlids/bulk_RNA_seq/input/unstranded/*_LG_rep*"
+fq="~/../cy293/cichlids/bulk_RNA_seq/input/unstranded/*_LG_rep*"
 working_dir="~/scratch/seq/"
 
 if ! command -v conda &> /dev/null
@@ -30,7 +30,7 @@ mkdir -p ./fastq/
 cp -n $fq ./fastq/
 mkdir -p ./genome/
 cd ./genome/
-genome=$(curl -s https://ftp.ensembl.org/pub/current_fasta/${species}/cdna/ | grep -oP '(?<=href=")[^"]+(?=\.cdna\.all\.fa\.gz)' | head -1)
+genome=$(curl -s https://ftp.ensembl.org/pub/current_fasta/${species}/cdna/ | grep -o 'href="[^"]\+\.cdna\.all\.fa\.gz' | sed 's/^href="//' | sed 's/\.cdna\.all\.fa\.gz$//' | head -1)
 if [ ! -f ${genome}.dna_sm.toplevel.fa.gz ]; then
     wget https://ftp.ensembl.org/pub/current_fasta/${species}/dna/${genome}.dna_sm.toplevel.fa.gz
 fi
@@ -61,6 +61,7 @@ for i in "${!sample[@]}"; do
         fi
         if [ ! -d ../output/${sample[i]}_${middle}_${replicate[j]} ]; then
             conda run -n seq salmon quant -i ${genome}_index -l A -1 ../fastq/${sample[i]}_${middle}_${replicate[j]}_*_1.fq.gz -2 ../fastq/${sample[i]}_${middle}_${replicate[j]}_*_2.fq.gz -p 64 -o ../output/${sample[i]}_${middle}_${replicate[j]} --writeMappings=../output/${sample[i]}_${middle}_${replicate[j]}.salmon.sam --gcBias
+            # -l A: auto-detect library type
         fi
         cd ../output/${sample[i]}_${middle}_${replicate[j]}/
         if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.salmon.bam ]; then
