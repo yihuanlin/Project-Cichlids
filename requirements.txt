@@ -1,0 +1,10 @@
+biopython
+igv
+orthofinder
+requests
+pandas
+ipykernel
+primer3-py
+fastqc
+picard
+salmon
