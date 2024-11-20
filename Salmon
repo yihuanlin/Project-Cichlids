@@ -21,7 +21,7 @@ then
     echo "conda is not installed. Please install Conda and rerun this script."
     exit 1
 fi
-conda run -n $conda_env salmon --help || conda create -n $conda_env biopython igv orthofinder requests pandas ipykernel primer3-py fastqc picard salmon -y
+conda run -n $conda_env salmon --help || conda create -n $conda_env --file requirements.txt -y
 readarray -t sample < <(ls $fq | cut -d'_' -f1)
 readarray -t replicate < <(ls $fq | cut -d'_' -f3 | cut -d'.' -f1)
 middle=$(echo $fq | awk -F'/' '{print $NF}' | cut -d'_' -f2)
