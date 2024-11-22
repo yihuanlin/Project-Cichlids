@@ -8,3 +8,6 @@ primer3-py
 fastqc
 picard
 salmon
+seaborn
+matplotlib
+ete3
