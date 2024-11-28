@@ -11,8 +11,7 @@
 
 # https://bioinformatics-core-shared-training.github.io/Bulk_RNAseq_Course_Nov24/Bulk_RNAseq_Course_Base/Markdowns/02_FastQC_practical.html
 # https://bioinformatics-core-shared-training.github.io/Bulk_RNAseq_Course_Nov24/Bulk_RNAseq_Course_Base/Markdowns/03_Quantification_with_Salmon_practical.html
-species="Astatotilapia calliptera"
-fq="~/../cy293/cichlids/bulk_RNA_seq/input/unstranded/*_LG_rep*"
+species="Astatotilapia calliptera" # Reference genome species
 conda_env="seq"
 working_dir="." # "~/scratch/seq/"
 
@@ -21,21 +20,46 @@ then
     echo "conda is not installed. Please install Conda and rerun this script."
     exit 1
 fi
+
 conda run -n $conda_env salmon --help || conda create -n $conda_env --file requirements.txt -y
-readarray -t sample < <(ls $fq | cut -d'_' -f1)
-readarray -t replicate < <(ls $fq | cut -d'_' -f3 | cut -d'.' -f1)
-middle=$(echo $fq | awk -F'/' '{print $NF}' | cut -d'_' -f2)
-species=$(echo "$species" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
-cd working_dir
+
+stages=("LG" "2C" "1K" "EG")
+groups=("AC")
+# File name example: AC_1K_rep1_EKRN220054961-1A_HLWCFDSX5_L1_1.fq.gz
+fq_path=~/../cy293/cichlids/bulk_RNA_seq/input/unstranded/
+
 mkdir -p ./fastq/
-for file in $fq; do
-    if [ ! -f ./fastq/$(basename "$file") ]; then
-        cp "$file" ./fastq/
+for stage in "${stages[@]}"; do
+    for group in "${groups[@]}"; do
+        fq_files=("${fq_path}""${group}"_"${stage}"_rep*)
+        for file in "${fq_files[@]}"; do
+            if [ ! -f ./fastq/$(basename "$file") ]; then
+                cp "$file" ./fastq/
+            fi
+        done
+    done
+done
+
+samples=()
+for file in ./fastq/*; do
+    filename=$(basename "$file")
+    group=$(echo "$filename" | cut -d'_' -f1)
+    stage=$(echo "$filename" | cut -d'_' -f2)
+    replicate=$(echo "$filename" | cut -d'_' -f3 | cut -d'.' -f1)
+    if [[ " ${groups[@]} " =~ " ${group} " ]] && [[ " ${stages[@]} " =~ " ${stage} " ]]; then
+        sample="${group}_${stage}_${replicate}"
+        if [[ ! " ${samples[@]} " =~ " ${sample} " ]]; then
+            samples+=("$sample")
+        fi
     fi
 done
+echo "Samples: ${samples[@]}"
+
 mkdir -p ./genome/
 cd ./genome/
+species=$(echo "$species" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
 genome=$(curl -s https://ftp.ensembl.org/pub/current_fasta/${species}/cdna/ | grep -o 'href="[^"]\+\.cdna\.all\.fa\.gz' | sed 's/^href="//' | sed 's/\.cdna\.all\.fa\.gz$//' | head -1)
+
 if [ ! -f ${genome}.dna_sm.toplevel.fa.gz ]; then
     wget https://ftp.ensembl.org/pub/current_fasta/${species}/dna/${genome}.dna_sm.toplevel.fa.gz
 fi
@@ -55,66 +79,96 @@ fi
 if [ ! -d ${genome}_index ]; then
     conda run -n $conda_env salmon index -t ${genome}.fa.gz -d decoy.txt -p 64 -i ${genome}_index
 fi
-mkdir -p ../output/
 
-for i in "${!sample[@]}"; do
-    for j in "${!replicate[@]}"; do
-        mkdir -p ../output/${sample[i]}_${middle}_${replicate[j]}
-        fastqc_report="../output/${sample[i]}_${middle}_${replicate[j]}/${sample[i]}_${middle}_${replicate[j]}_fastqc.html"
-        if [ ! -f "$fastqc_report" ]; then
-            conda run -n $conda_env fastqc -o "../output/${sample[i]}_${middle}_${replicate[j]}" "../fastq/${sample[i]}_${middle}_${replicate[j]}_*_1.fq.gz" "../fastq/${sample[i]}_${middle}_${replicate[j]}_*_2.fq.gz"
-        fi
-        if [ ! -d ../output/${sample[i]}_${middle}_${replicate[j]} ]; then
-            conda run -n $conda_env salmon quant -i ${genome}_index -l A -1 ../fastq/${sample[i]}_${middle}_${replicate[j]}_*_1.fq.gz -2 ../fastq/${sample[i]}_${middle}_${replicate[j]}_*_2.fq.gz -p 64 -o ../output/${sample[i]}_${middle}_${replicate[j]} --writeMappings=../output/${sample[i]}_${middle}_${replicate[j]}.salmon.sam --gcBias
-            # -l A: auto-detect library type
-        fi
-        cd ../output/${sample[i]}_${middle}_${replicate[j]}/
-        if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.salmon.bam ]; then
-            conda run -n $conda_env samtools sort -O BAM -o ${sample[i]}_${middle}_${replicate[j]}.salmon.bam ${sample[i]}_${middle}_${replicate[j]}.salmon.sam -@ 64
-        fi
-        if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.tsv ]; then
-            ### Make transcript to gene table
-            echo -e "TxID\tGeneID" > ${sample[i]}_${middle}_${replicate[j]}.tsv
-            zcat ${genome}.cdna.all.fa.gz |
-            grep "^>" | 
-            cut -f 1,4 -d ' ' | 
-            sed -e 's/^>//' -e 's/gene://' -e 's/\.[0-9]*$//' |
-            tr ' ' '\t'  >> ${sample[i]}_${middle}_${replicate[j]}.tsv
-        fi
-        # https://bioinformatics-core-shared-training.github.io/Bulk_RNAseq_Course_Nov24/Bulk_RNAseq_Course_Base/Markdowns/04_Quality_Control_practical.html
-        # samtools view -H AC_LG_rep1.salmon.bam | grep '@RG' # Get the read group information
-        if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.salmon.sorted.bam ]; then
-            conda run -n $conda_env picard AddOrReplaceReadGroups \
-                -I ${sample[i]}_${middle}_${replicate[j]}.salmon.bam \
-                -O ${sample[i]}_${middle}_${replicate[j]}.salmon.sorted.bam \
-                -RGID ${replicate[j]} \
-                -RGLB lib1 \
-                -RGPL illumina \
-                -RGPU unit1 \
-                -RGSM ${sample[i]}_${middle}_${replicate[j]} \
-                -VALIDATION_STRINGENCY SILENT
-        fi
-        if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.bam ]; then
-            conda run -n $conda_env picard MarkDuplicates \
-                -I ${sample[i]}_${middle}_${replicate[j]}.salmon.sorted.bam \
-                -O ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.bam \
-                -M ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup_metrics.txt \
-                -CREATE_INDEX true \
-                -VALIDATION_STRINGENCY SILENT
-        fi
-        if [ ! -f ../output/${genome}_transriptome_refFlat.txt ]; then
-            ../../script/create_refflat_from_sam_header.py -b ${sample[i]}_${middle}_${replicate[j]}.salmon.sorted.bam -o ../output/${genome}_transriptome_refFlat.txt
-        fi
-        if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.metrics ]; then
-            conda run -n $conda_env picard CollectRnaSeqMetrics \
-                -I ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.bam \
-                -O ${sample[i]}_${middle}_${replicate[j]}.salmon.mkdup.metrics \
-                -REF_FLAT ../output/${genome}_transriptome_refFlat.txt \
-                -STRAND_SPECIFICITY NONE \
-                -VALIDATION_STRINGENCY SILENT
-        fi
-        if [ ! -f ${sample[i]}_${middle}_${replicate[j]}.QCReport.html ]; then
-            conda run -n $conda_env multiqc . -n ${sample[i]}_${middle}_${replicate[j]}.QCReport.html -o .
+mkdir -p ../output/
+for sample in "${samples[@]}"; do
+    group=$(echo "$sample" | cut -d'_' -f1)
+    stage=$(echo "$sample" | cut -d'_' -f2)
+    replicate=$(echo "$sample" | cut -d'_' -f3)
+
+    output_dir="../output/${group}_${stage}_${replicate}"
+    mkdir -p "$output_dir"
+
+    fastqc_report="${output_dir}/${group}_${stage}_${replicate}_fastqc.html"
+    if [ ! -f "$fastqc_report" ]; then
+        conda run -n $conda_env fastqc -o "$output_dir" \
+            "../fastq/${group}_${stage}_${replicate}_*_1.fq.gz" \
+            "../fastq/${group}_${stage}_${replicate}_*_2.fq.gz"
+    fi
+
+    if [ ! -d "${output_dir}" ]; then
+        conda run -n $conda_env salmon quant -i ${genome}_index -l A \
+            -1 "../fastq/${group}_${stage}_${replicate}_*_1.fq.gz" \
+            -2 "../fastq/${group}_${stage}_${replicate}_*_2.fq.gz" \
+            -p 64 -o "${output_dir}" \
+            --writeMappings="${output_dir}/${group}_${stage}_${replicate}.salmon.sam" --gcBias
+    fi
+
+    cd "${output_dir}"
+
+    if [ ! -f ${group}_${stage}_${replicate}.salmon.bam ]; then
+        conda run -n $conda_env samtools sort -O BAM -o ${group}_${stage}_${replicate}.salmon.bam ${group}_${stage}_${replicate}.salmon.sam -@ 64
+    fi
+    if [ ! -f ${group}_${stage}_${replicate}.tsv ]; then
+        echo -e "TxID\tGeneID" > ${group}_${stage}_${replicate}.tsv
+        zcat ../../genome/${genome}.cdna.all.fa.gz |
+        grep "^>" | 
+        cut -f 1,4 -d ' ' | 
+        sed -e 's/^>//' -e 's/gene://' -e 's/\.[0-9]*$//' |
+        tr ' ' '\t'  >> ${group}_${stage}_${replicate}.tsv
+    fi
+    if [ ! -f ${group}_${stage}_${replicate}.salmon.sorted.bam ]; then
+        conda run -n $conda_env picard AddOrReplaceReadGroups \
+            -I ${group}_${stage}_${replicate}.salmon.bam \
+            -O ${group}_${stage}_${replicate}.salmon.sorted.bam \
+            -RGID ${replicate} \
+            -RGLB lib1 \
+            -RGPL illumina \
+            -RGPU unit1 \
+            -RGSM ${group}_${stage}_${replicate} \
+            -VALIDATION_STRINGENCY SILENT
+    fi
+    if [ ! -f ${group}_${stage}_${replicate}.salmon.mkdup.bam ]; then
+        conda run -n $conda_env picard MarkDuplicates \
+            -I ${group}_${stage}_${replicate}.salmon.sorted.bam \
+            -O ${group}_${stage}_${replicate}.salmon.mkdup.bam \
+            -M ${group}_${stage}_${replicate}.salmon.mkdup_metrics.txt \
+            -CREATE_INDEX true \
+            -VALIDATION_STRINGENCY SILENT
+    fi
+    if [ ! -f ../${genome}_transriptome_refFlat.txt ]; then
+        ../../script/create_refflat_from_sam_header.py -b ${group}_${stage}_${replicate}.salmon.sorted.bam -o ../${genome}_transriptome_refFlat.txt
+    fi
+    if [ ! -f ${group}_${stage}_${replicate}.salmon.mkdup.metrics ]; then
+        conda run -n $conda_env picard CollectRnaSeqMetrics \
+            -I ${group}_${stage}_${replicate}.salmon.mkdup.bam \
+            -O ${group}_${stage}_${replicate}.salmon.mkdup.metrics \
+            -REF_FLAT ../${genome}_transriptome_refFlat.txt \
+            -STRAND_SPECIFICITY NONE \
+            -VALIDATION_STRINGENCY SILENT
+    fi
+    if [ ! -f ${group}_${stage}_${replicate}.QCReport.html ]; then
+        conda run -n $conda_env multiqc . -n ${group}_${stage}_${replicate}.QCReport.html -o .
+    fi
+
+    cd ../../
+done
+
+for group in "${groups[@]}"; do
+    for stage in "${stages[@]}"; do
+        replicate_bams=()
+        for sample in "${samples[@]}"; do
+            sample_group=$(echo "$sample" | cut -d'_' -f1)
+            sample_stage=$(echo "$sample" | cut -d'_' -f2)
+            sample_replicate=$(echo "$sample" | cut -d'_' -f3)
+            if [ "$sample_group" == "$group" ] && [ "$sample_stage" == "$stage" ]; then
+                replicate_bams+=("output/${group}_${stage}_${sample_replicate}/${group}_${stage}_${sample_replicate}.salmon.mkdup.bam")
+            fi
+        done
+        if [ "${#replicate_bams[@]}" -gt 0 ]; then
+            merged_bam="output/${group}_${stage}_merged.markdup.sorted.bam"
+            conda run -n $conda_env samtools merge -@ 64 "$merged_bam" "${replicate_bams[@]}"
+            conda run -n $conda_env samtools index -@ 64 "$merged_bam"
         fi
     done
 done
