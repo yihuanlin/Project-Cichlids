@@ -42,8 +42,8 @@
         <Track attributeKey="AC_LG_merged.markdup.sorted.bam Coverage" autoScale="false" autoscaleGroup="2" clazz="org.broad.igv.sam.CoverageTrack" fontSize="10" id="./bam/AC_LG_merged.markdup.sorted.bam_coverage" name="AC_LG_merged.markdup.sorted.bam Coverage" snpThreshold="0.2" visible="true">
             <DataRange baseline="0.0" drawBaseline="true" flipAxis="false" maximum="185.0" minimum="0.0" type="LINEAR"/>
         </Track>
-        <Track attributeKey="AC_LG_merged.markdup.sorted.bam Junctions" autoScale="false" clazz="org.broad.igv.sam.SpliceJunctionTrack" fontSize="10" groupByStrand="false" height="60" id="./bam/AC_LG_merged.markdup.sorted.bam_junctions" maxdepth="50" name="AC_LG_merged.markdup.sorted.bam Junctions" visible="false"/>
-        <Track attributeKey="AC_LG_merged.markdup.sorted.bam" clazz="org.broad.igv.sam.AlignmentTrack" color="185,185,185" displayMode="EXPANDED" experimentType="OTHER" fontSize="10" id="./bam/AC_LG_merged.markdup.sorted.bam" name="AC_LG_merged.markdup.sorted.bam" visible="true">
+        <Track attributeKey="AC_LG_merged.markdup.sorted.bam Junctions" autoScale="false" clazz="org.broad.igv.sam.SpliceJunctionTrack" fontSize="10" groupByStrand="false" height="60" id="./bam/AC_LG_merged.markdup.sorted.bam_junctions" maxdepth="185" name="AC_LG_merged.markdup.sorted.bam Junctions" visible="false"/>
+        <Track attributeKey="AC_LG_merged.markdup.sorted.bam" clazz="org.broad.igv.sam.AlignmentTrack" color="185,185,185" displayMode="EXPANDED" experimentType="RNA" fontSize="10" id="./bam/AC_LG_merged.markdup.sorted.bam" name="AC_LG_merged.markdup.sorted.bam" visible="true">
             <RenderOptions/>
         </Track>
     </Panel>

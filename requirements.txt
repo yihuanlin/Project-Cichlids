@@ -11,3 +11,4 @@ salmon
 seaborn
 matplotlib
 ete3
+pyensembl
