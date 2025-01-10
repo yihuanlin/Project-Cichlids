@@ -1,13 +1,13 @@
 biopython
 igv
-orthofinder
+# orthofinder
 requests
 pandas
 ipykernel
 primer3-py
 fastqc
 picard
-salmon
+# salmon
 seaborn
 matplotlib
 ete3
