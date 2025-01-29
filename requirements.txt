@@ -1,14 +1,16 @@
 biopython
 igv
-# orthofinder
+orthofinder # Comment out if using arm64
 requests
 pandas
 ipykernel
 primer3-py
 fastqc
 picard
-# salmon
+salmon # Comment out if using arm64
 seaborn
 matplotlib
 ete3
 pyensembl
+pyfaidx
+py3dmol
