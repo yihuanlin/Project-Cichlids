@@ -1,16 +1,17 @@
-biopython
+# fastqc
+# picard
+# salmon # Not available on osx-arm64
+# orthofinder # Not available on osx-arm64
 igv
-orthofinder # Comment out if using arm64
+biopython
 requests
 pandas
 ipykernel
 primer3-py
-fastqc
-picard
-salmon # Comment out if using arm64
 seaborn
 matplotlib
 ete3
 pyensembl
 pyfaidx
 py3dmol
+usalign
