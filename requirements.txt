@@ -15,3 +15,6 @@ pyensembl
 pyfaidx
 py3dmol
 usalign
+pybiolib
+bali-phy
+pymsaviz
