@@ -1,6 +1,6 @@
 #!/bin/sh -
 script_dir=$(dirname "$0")
-nohup conda run -n seq igv "$script_dir/igv_session.xml" >&/dev/null &
+nohup conda run -n bio igv "$script_dir/igv_session.xml" >&/dev/null &
 window_list=$(/usr/bin/osascript -e 'tell application "Terminal" to get name of every window')
 num=$(echo "$window_list" | /usr/bin/grep -o ',' | /usr/bin/wc -l)
 echo $num

@@ -18,3 +18,4 @@ usalign
 pybiolib
 bali-phy
 pymsaviz
+viennarna
