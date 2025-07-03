@@ -1,7 +1,9 @@
 # fastqc
 # picard
-# salmon # Not available on osx-arm64
-# orthofinder # Not available on osx-arm64
+# salmon
+# emboss
+samtools
+orthofinder
 igv
 biopython
 requests
