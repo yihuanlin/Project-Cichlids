@@ -22,3 +22,18 @@ bali-phy
 pymsaviz
 viennarna
 xlrd
+# pyjaspar
+# moods
+r-biocmanager
+r-gsl
+r-nlme
+r-mgcv
+r-ggplot2
+r-mass
+r-matrix
+bioconductor-bsgenome
+bioconductor-biocparallel
+bioconductor-rsamtools
+bioconductor-genomicalignments
+bioconductor-rtracklayer
+bioconductor-jaspar2024
